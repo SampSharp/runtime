@@ -126,11 +126,14 @@ jobs:
       - name: clrInterpreterBuildArg
         value: '-cmakeargs "-DFEATURE_INTERPRETER=1"'
 
-    - name: clrBuildPALTestsBuildArg
+    - name: clrRuntimeComponentsBuildArg
       value: ''
     - ${{ if ne(parameters.testGroup, 'innerloop') }}:
-      - name: clrBuildPALTestsBuildArg
+      - name: clrRuntimeComponentsBuildArg
         value: '-component runtime -component alljits -component paltests '
+    - ${{ if and(eq(parameters.osGroup, 'Linux'), eq(parameters.archType, 'x86')) }}:
+      - name: clrRuntimeComponentsBuildArg
+        value: '-component runtime -component jit -component iltools '
 
     - name: pgoInstrumentArg
       value: ''
@@ -140,6 +143,12 @@ jobs:
 
     - name: SignType
       value: $[ coalesce(variables.OfficialSignType, 'real') ]
+
+    - name: clrRuntimePortableBuildArg
+      value: ''
+    - ${{ if eq(parameters.osGroup, 'Tizen') }}:
+      - name: clrRuntimePortableBuildArg
+        value: '-portablebuild=false'
 
     - ${{ parameters.variables }}
 
@@ -188,7 +197,13 @@ jobs:
 
     # Build CoreCLR Runtime
     - ${{ if ne(parameters.osGroup, 'windows') }}:
+<<<<<<< HEAD
       - script: $(Build.SourcesDirectory)/src/coreclr/build-runtime$(scriptExt) $(buildConfig) $(archType) $(crossArg) $(osArg) -ci $(compilerArg) $(clrBuildPALTestsBuildArg) $(pgoInstrumentArg) $(officialBuildIdArg) $(clrInterpreterBuildArg)
+||||||| parent of bfcb5426ebe... Add linux x86 build CI for pull request (#60817)
+      - script: $(Build.SourcesDirectory)/src/coreclr/build-runtime$(scriptExt) $(buildConfig) $(archType) $(crossArg) $(osArg) -ci $(compilerArg) $(clrBuildPALTestsBuildArg) $(pgoInstrumentArg) $(officialBuildIdArg) $(clrInterpreterBuildArg) $(clrRuntimePortableBuildArg) $(CoreClrPgoDataArg)
+=======
+      - script: $(Build.SourcesDirectory)/src/coreclr/build-runtime$(scriptExt) $(buildConfig) $(archType) $(crossArg) $(osArg) -ci $(compilerArg) $(clrRuntimeComponentsBuildArg) $(pgoInstrumentArg) $(officialBuildIdArg) $(clrInterpreterBuildArg) $(clrRuntimePortableBuildArg) $(CoreClrPgoDataArg)
+>>>>>>> bfcb5426ebe... Add linux x86 build CI for pull request (#60817)
         displayName: Build CoreCLR Runtime
     - ${{ if eq(parameters.osGroup, 'windows') }}:
       - script: set __TestIntermediateDir=int&&$(Build.SourcesDirectory)/src/coreclr/build-runtime$(scriptExt) $(buildConfig) $(archType) -ci $(enforcePgoArg) $(pgoInstrumentArg) $(officialBuildIdArg) $(clrInterpreterBuildArg)
@@ -201,8 +216,12 @@ jobs:
         displayName: Disk Usage after Build
 
     # Build CoreCLR Managed Components
-    - script: $(Build.SourcesDirectory)$(dir)build$(scriptExt) -subset clr.corelib+clr.nativecorelib+clr.tools+clr.packages+clr.paltestlist $(crossArg) -arch $(archType) $(osArg) -c $(buildConfig) $(pgoInstrumentArg) $(officialBuildIdArg) -ci
-      displayName: Build managed product components and packages
+    - ${{ if or(ne(parameters.osGroup, 'Linux'), ne(parameters.archType, 'x86')) }}:
+      - script: $(Build.SourcesDirectory)$(dir)build$(scriptExt) -subset clr.corelib+clr.nativecorelib+clr.tools+clr.packages+clr.paltestlist $(crossArg) -arch $(archType) $(osArg) -c $(buildConfig) $(pgoInstrumentArg) $(officialBuildIdArg) -ci
+        displayName: Build managed product components and packages
+    - ${{ if and(eq(parameters.osGroup, 'Linux'), eq(parameters.archType, 'x86')) }}:
+      - script: $(Build.SourcesDirectory)$(dir)build$(scriptExt) -subset clr.corelib $(crossArg) -arch $(archType) $(osArg) -c $(buildConfig) $(pgoInstrumentArg) $(officialBuildIdArg) -ci
+        displayName: Build managed product components and packages
 
     # Run CoreCLR Tools unit tests
     - ${{ if eq(parameters.testGroup, 'clrTools') }}:
